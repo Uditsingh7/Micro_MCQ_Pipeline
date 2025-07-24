@@ -1,6 +1,7 @@
 # pipeline.py
 
 import ast
+import json
 import re
 from app.prompts import (
     create_stage1_prompt,
@@ -9,8 +10,9 @@ from app.prompts import (
 )
 from app.runpod_agent import query_llm
 from app.evaluator import evaluator_agent
-from utils.json_extractor import extract_json
+from utils.json_extractor import extract_json 
 from utils.logger import logger
+from app.continuity_agent import decide_revision_action
 
 
 def generate_mcq(context, user_profile):
@@ -64,8 +66,17 @@ def generate_mcq(context, user_profile):
         loop_threshold = 3
         while loop_count < loop_threshold:
             logger.info("🔍 Evaluation Round %d", loop_count + 1)
-            evaluator_feedback, decision = evaluator_agent(generator_response)
-            logger.info("Evaluator Feedback: %s", evaluator_feedback, decision)
+            evaluator_feedback, token = evaluator_agent(generator_response)
+            
+            decision = decide_revision_action(
+            evaluator_feedback=json.dumps(evaluator_feedback, indent=2),
+            generator_response=generator_response,
+            model=model
+            )
+            
+            logger.info("Evaluator Feedback: %s", evaluator_feedback)
+            logger.info("Decision: %s", decision)
+
 
             if decision in ["question", "solution"]:
                 logger.info("🔁 Regenerating question/solution due to: %s", decision)
@@ -76,6 +87,7 @@ def generate_mcq(context, user_profile):
                     evaluator_context=evaluator_feedback
                 )
                 question_answer = query_llm(stage2_prompt, model, temperature=0.3)
+                question_answer = question_answer[0]['choices'][0]['tokens'][0]
                 question_answer = re.sub(r"<think>.*?</think>", "", question_answer, flags=re.DOTALL)
                 question_answer = re.sub(r"</?raw>", "", question_answer, flags=re.DOTALL)
                 if not question_answer:
@@ -89,11 +101,12 @@ def generate_mcq(context, user_profile):
                     return {"error": "Failed to regenerate MCQ options."}
 
             elif decision == "options":
-                logger.info("🔁 Regenerating options due to: %s", decision)
+                logger.info("🔁 Regenerating options due to: %s", decision) 
                 stage3_prompt = create_stage3_prompt(
                     explanation, question_answer, evaluator_feedback
                 )
                 generator_response = query_llm(stage3_prompt, model, temperature=0.3)
+                generator_response = generator_response[0]['choices'][0]['tokens'][0]
                 generator_response = re.sub(r"<think>.*?</think>", "", generator_response, flags=re.DOTALL)
                 generator_response = re.sub(r"</?raw>", "", generator_response, flags=re.DOTALL)
                 if not generator_response:

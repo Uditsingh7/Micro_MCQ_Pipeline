@@ -77,10 +77,12 @@ def evaluator_agent(generator_response: str):
             return None, None
 
         response_text = response_json["output"]
+        # logger.info("Evaluator response: %s", response_text)
+        
+        response_text = response_text[0]['choices'][0]['tokens'][0]
         
         # Clean up the response by removing <think> and <raw> tags
         clean_response = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
-        clean_response = re.sub(r'<raw>.*?</raw>', '', clean_response, flags=re.DOTALL)
         
         logger.info("Evaluator response: %s", clean_response)
         
