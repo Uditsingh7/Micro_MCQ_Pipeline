@@ -10,28 +10,34 @@ from dotenv import load_dotenv
 load_dotenv()
 
 RUNPOD_API_KEY = os.getenv("RUNPOD_API_KEY")
-RUNPOD_ENDPOINT = os.getenv("RUNPOD_ENDPOINT")  # e.g., "https://api.runpod.ai/v2/your-endpoint-id/run"
+RUNPOD_ENDPOINT = os.getenv("RUNPOD_ENDPOINT")
 
 HEADERS = {
     "Content-Type": "application/json",
     "Authorization": f"Bearer {RUNPOD_API_KEY}"
 }
-
-def query_llm(prompt: str, model: str = "runpod-llm", temperature:int = 0.7) -> str:
+ 
+def query_llm(prompt: str, model: str = "runpod-llm", temperature: float = 0.7, max_tokens: int = 4096) -> str:
     if not RUNPOD_API_KEY or not RUNPOD_ENDPOINT:
         logger.error("Missing RUNPOD_API_KEY or RUNPOD_ENDPOINT in environment.")
         return None
 
-    payload = {
+    # Correct RunPod API format
+    api_payload = {
         "input": {
-            "prompt": prompt,
-            "temperature": temperature,
-            "max_tokens": 4096
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "sampling_params": {
+                "temperature": temperature,
+                "max_tokens": max_tokens
+            }
         }
     }
+
     try:
         logger.info("Querying Runpod model: %s", model)
-        response = requests.post(RUNPOD_ENDPOINT, headers=HEADERS, json=payload)
+        response = requests.post(RUNPOD_ENDPOINT, headers=HEADERS, json=api_payload)
         response.raise_for_status()
         response_json = response.json()
 
@@ -39,12 +45,9 @@ def query_llm(prompt: str, model: str = "runpod-llm", temperature:int = 0.7) -> 
             logger.error("Runpod response missing 'output' field: %s", response_json)
             return None
 
-        try:
-            return response_json["output"]["choices"][0]["message"]["content"]
-        except Exception:
-            return str(response_json["output"])
+        response_text = response_json["output"]
+        return response_text
 
     except Exception as e:
         logger.exception("Runpod query failed: %s", str(e))
         return None
-

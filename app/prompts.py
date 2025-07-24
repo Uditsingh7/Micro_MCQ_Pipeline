@@ -1,111 +1,120 @@
 # prompts.py
 
+BASE_PROMPT_EVALUATOR = (
+    "I am a highly skilled evaluator assistant specializing in assessing the quality and accuracy of Multiple Choice Questions (MCQs). "
+    "My primary function is to critically analyze questions, their context, answer options, and explanations based on specific criteria provided. "
+    "I offer impartial, thorough, and constructive evaluations to ensure the highest standards of question quality. "
+    "My assessments are always based on the given parameters and context, and I provide clear, concise explanations for each evaluation point."
+)
+
 def create_stage1_prompt(input_context):
     stage1_prompt = f"""##Instructions##
-Given the context, focus on a meaningful topic and explain it clearly.
-This explanation will later be used to generate high quality questions.
+You are an AI assistant that writes clear, factual explanations.
+Your task is to analyze the provided context and write a concise, detailed explanation of a core topic from it.
+This explanation will be used by another program, so the output format must be exact.
 
-##context## : {input_context}
-##Your Explanation## :
+**Output Rules:**
+- Do NOT include any conversational phrases, introductions, or self-corrections (e.g., "Okay, I will explain...", "Let me start by...").
+- The response MUST begin directly with the explanation itself.
+- The output must be a single, self-contained paragraph of plain text (no lists or sections).
+- Aim for a well-developed explanation — not just a definition, but a brief deep dive.
+
+##Example of Correct Formatting##
+Context:
+"Gradient descent is an optimization algorithm commonly used in machine learning and deep learning. It is used to minimize a function by iteratively moving in the direction of steepest descent, as defined by the negative of the gradient."
+
+Your Explanation:
+Gradient descent is an iterative optimization algorithm that aims to minimize a given loss function by updating model parameters in the direction of the negative gradient. At each step, the algorithm calculates the gradient of the loss function with respect to the parameters and adjusts them to reduce the overall error. The learning rate determines the size of these updates, balancing convergence speed and stability. Gradient descent forms the foundation of many training procedures in machine learning, especially in neural networks and linear models, where it enables the system to learn optimal weights based on training data.
+
+##Context to Explain##
+{input_context}
 """
     return stage1_prompt
 
 
 def create_stage2_prompt(explanation, template, role, years_of_experience, selected_difficulty, evaluator_context=None):
     if not evaluator_context:
-        IO_Prompt = f"""##Instruction##
-Based on the explanation provided, generate a high-quality {template}-style question that can later be converted into an MCQ.
-Avoid revealing the exact solution in the question statement.
+        IO_Prompt = f"""
+You are a thoughtful teaching assistant helping to create high-quality {template}-style conceptual questions for a microlearning platform.
 
-### Explanation ###
+Think through the explanation below and reason your way to a good question. The question should test deep understanding, not trivia. Avoid revealing the answer inside the question.
+
+Candidate Profile:
+- Role: {role}
+- Experience: {years_of_experience} years
+- Difficulty Level: {selected_difficulty}
+
+Step-by-step, you may think out loud while reasoning. But at the end, respond with only the final output enclosed in <raw> tags in this format:
+
+<raw>
+{{
+  "question": "<well-phrased conceptual question>",
+  "solution": "<step-by-step solution>",
+  "answer": "<short correct answer>"
+}}
+</raw>
+
+Concept Explanation:
 {explanation}
-
-### Candidate Parameters ###
-Role: {role}
-Experience: {years_of_experience} years
-Difficulty: {selected_difficulty}
-
-## Expected Output ##
-Question:
-Solution:
-Correct Answer:
 """
     else:
-        IO_Prompt = f"""##Instruction##
-Based on the explanation provided, generate an improved high-quality {template}-style question for MCQ conversion.
-Avoid revealing the exact solution in the question statement.
-Also, use the evaluator_context below to fix any mistakes from the previous version.
+        IO_Prompt = f"""
+You are revising a previously generated {template}-style question based on evaluator feedback. Think carefully about what needs to be changed.
 
-### Explanation ###
-{explanation}
+Candidate Profile:
+- Role: {role}
+- Experience: {years_of_experience} years
+- Difficulty Level: {selected_difficulty}
 
-### Candidate Parameters ###
-Role: {role}
-Experience: {years_of_experience} years
-Difficulty: {selected_difficulty}
-Evaluator Feedback: {evaluator_context}
-
-## Expected Output ##
-Question:
-Solution:
-Correct Answer:
-"""
-    return IO_Prompt
-
-def create_stage3_prompt(explanation, question_answer, evaluator_context=None):
-    if evaluator_context:
-        IO_Prompt = f"""##Instruction##
-You are provided with a concept explanation and a previously generated question-answer pair.
-
-Your task:
-- Create 3 strong distractor options based on common misconceptions or confusion points in the topic.
-- The options should be realistic, not obviously wrong, and should challenge the candidate.
-- Include a short explanation of why the correct answer is correct.
-- Use the evaluator_context to improve on previous mistakes.
-
-### Concept Explanation ###
-{explanation}
-
-### QA Pair ###
-{question_answer}
-
-### Evaluator Feedback ###
+Evaluator Feedback:
 {evaluator_context}
 
-## Expected Output ##
-Question: ...
-Options:
-A) ...
-B) ...
-C) ...
-D) ...  ← correct answer
-Explanation: ...
+Reason through the explanation and feedback, then provide the revised output inside <raw> tags in this format:
+
+<raw>
+{{
+  "question": "<revised question>",
+  "solution": "<step-by-step solution>",
+  "answer": "<short correct answer>"
+}}
+</raw>
+
+Original Concept Explanation:
+{explanation}
 """
-    else:
-        IO_Prompt = f"""##Instruction##
-You are provided with a concept explanation and a previously generated question-answer pair.
+    return IO_Prompt.strip()
 
-Your task:
-- Create 3 strong distractor options based on common misconceptions or confusion points in the topic.
-- The options should be realistic, not obviously wrong, and should challenge the candidate.
-- Include a short explanation of why the correct answer is correct.
+def create_stage3_prompt(explanation, question_answer, evaluator_context=None):
+    base_prompt = f"""
+You are an assessment expert tasked with converting a conceptual Q&A pair into a high-quality multiple-choice question.
 
-### Concept Explanation ###
+Your job:
+- Create 3 strong distractor options that reflect common misunderstandings.
+- Mark the correct answer clearly.
+- Provide a brief explanation of why the correct option is right.
+
+You may reason step-by-step. But conclude your response with the following JSON enclosed in <raw> tags:
+
+<raw>
+{{
+  "question": "<final reworded question with options>",
+  "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+  "answer": "B",  # Correct letter only
+  "explanation": "<why the correct answer is correct>"
+}}
+</raw>
+
+Concept Explanation:
 {explanation}
 
-### QA Pair ###
+Q&A Pair:
 {question_answer}
-
-## Expected Output ##
-Question: ...
-Options:
-A) ...
-B) ...
-C) ...
-D) ...  ← correct answer
-Explanation: ...
 """
-    return IO_Prompt
+
+    if evaluator_context:
+        base_prompt += f"\n\nEvaluator Feedback:\n{evaluator_context}"
+
+    return base_prompt.strip()
 
 
 def stage4_formatting_prompt(raw_output: str) -> str:
