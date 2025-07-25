@@ -9,17 +9,21 @@ from app.prompts import (
     create_stage3_prompt
 )
 from app.runpod_agent import query_llm
-from app.evaluator import evaluator_agent
-from utils.json_extractor import extract_json 
+from app.evaluator import evaluator_agent 
 from utils.logger import logger
 from app.continuity_agent import decide_revision_action
 
 
 def generate_mcq(context, user_profile):
     role = user_profile.get("role")
-    years_of_experience = user_profile.get("years_of_experience")
+    academic_level = user_profile.get("academic_level")  # e.g., "Class 11"
+    learning_goal = user_profile.get("learning_goal")    # e.g., "Master NEET basics"
+    exam_style = user_profile.get("exam_style")          # e.g., "NEET", "JEE"
+    preferred_question_type = user_profile.get("preferred_question_type")  # e.g., "Conceptual"
     difficulty = user_profile.get("difficulty_level")
+    years_of_experience = user_profile.get("years_of_experience", 0)
     model = "runpod-llm"
+
 
     try:
         # Stage 1: Explanation
@@ -36,10 +40,19 @@ def generate_mcq(context, user_profile):
         # Stage 2: Question + Correct Answer
         logger.info("🟢 Stage 2: Generating question and answer...")
         stage2_prompt = create_stage2_prompt(
-            explanation, template="scenario", role=role,
+            explanation=explanation,
+            template="scenario",
+            role=role,
+            academic_level=academic_level,
             years_of_experience=years_of_experience,
-            selected_difficulty=difficulty
+            learning_goal=learning_goal,
+            exam_style=exam_style,
+            preferred_question_type=preferred_question_type,
+            selected_difficulty=difficulty,
+            evaluator_context=None  # No evaluator context for initial generation
         )
+
+
         logger.info("Stage 2 Prompt: %s", stage2_prompt)
         question_answer = query_llm(stage2_prompt, model, temperature=0.7)
         question_answer = question_answer[0]['choices'][0]['tokens'][0]
@@ -81,11 +94,17 @@ def generate_mcq(context, user_profile):
             if decision in ["question", "solution"]:
                 logger.info("🔁 Regenerating question/solution due to: %s", decision)
                 stage2_prompt = create_stage2_prompt(
-                    explanation, template="scenario", role=role,
+                    explanation=explanation,
+                    template="scenario",
+                    role=role,
+                    academic_level=academic_level,
                     years_of_experience=years_of_experience,
+                    learning_goal=learning_goal,
+                    exam_style=exam_style,
+                    preferred_question_type=preferred_question_type,
                     selected_difficulty=difficulty,
                     evaluator_context=evaluator_feedback
-                )
+            )
                 question_answer = query_llm(stage2_prompt, model, temperature=0.3)
                 question_answer = question_answer[0]['choices'][0]['tokens'][0]
                 question_answer = re.sub(r"<think>.*?</think>", "", question_answer, flags=re.DOTALL)
@@ -109,7 +128,7 @@ def generate_mcq(context, user_profile):
                 generator_response = generator_response[0]['choices'][0]['tokens'][0]
                 generator_response = re.sub(r"<think>.*?</think>", "", generator_response, flags=re.DOTALL)
                 generator_response = re.sub(r"</?raw>", "", generator_response, flags=re.DOTALL)
-                if not generator_response:
+                if not generator_response: 
                     return {"error": "Failed to regenerate MCQ options."}
 
             else:

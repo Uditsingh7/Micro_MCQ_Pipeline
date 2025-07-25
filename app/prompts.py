@@ -64,25 +64,42 @@ Gradient descent is an iterative optimization algorithm that aims to minimize a 
     return stage1_prompt
 
 
-def create_stage2_prompt(explanation, template, role, years_of_experience, selected_difficulty, evaluator_context=None):
+def create_stage2_prompt(
+    explanation,
+    template,
+    role,
+    academic_level,
+    years_of_experience,
+    learning_goal,
+    exam_style,
+    preferred_question_type,
+    selected_difficulty,
+    evaluator_context=None
+):
     if not evaluator_context:
         IO_Prompt = f"""
-You are a thoughtful teaching assistant helping to create high-quality {template}-style conceptual questions for a microlearning platform.
+You are a helpful AI tutor specialized in preparing {academic_level} students for competitive exams like {exam_style}. 
+Your task is to generate a high-quality {template}-style MCQ that helps students deeply understand the topic.
 
-Think through the explanation below and reason your way to a good question. The question should test deep understanding, not trivia. Avoid revealing the answer inside the question.
+Think carefully through the explanation and generate a question that targets conceptual clarity. 
+Avoid surface-level trivia. Do not embed the answer inside the question.
 
-Candidate Profile:
+Student Profile:
 - Role: {role}
-- Experience: {years_of_experience} years
+- Academic Level: {academic_level}
+- Learning Goal: {learning_goal}
+- Exam Style: {exam_style}
+- Preferred Question Type: {preferred_question_type}
 - Difficulty Level: {selected_difficulty}
+- Learning Experience: {years_of_experience} years
 
-Step-by-step, you may think out loud while reasoning. But at the end, respond with only the final output enclosed in <raw> tags in this format:
+Think step-by-step to arrive at a good conceptual MCQ. Then respond ONLY with your final output in this format, inside <raw> tags:
 
 <raw>
 {{
-  "question": "<well-phrased conceptual question>",
-  "solution": "<step-by-step solution>",
-  "answer": "<short correct answer>"
+  "question": "<a clear, student-friendly conceptual MCQ>",
+  "solution": "<step-by-step explanation that helps the student understand the reasoning>",
+  "answer": "<correct answer text>"
 }}
 </raw>
 
@@ -91,23 +108,27 @@ Concept Explanation:
 """
     else:
         IO_Prompt = f"""
-You are revising a previously generated {template}-style question based on evaluator feedback. Think carefully about what needs to be changed.
+You are revising a previously generated {template}-style MCQ based on evaluator feedback. Your focus is to improve the clarity, correctness, and conceptual depth of the question.
 
-Candidate Profile:
+Student Profile:
 - Role: {role}
-- Experience: {years_of_experience} years
+- Academic Level: {academic_level}
+- Learning Goal: {learning_goal}
+- Exam Style: {exam_style}
+- Preferred Question Type: {preferred_question_type}
 - Difficulty Level: {selected_difficulty}
+- Learning Experience: {years_of_experience} years
 
 Evaluator Feedback:
 {evaluator_context}
 
-Reason through the explanation and feedback, then provide the revised output inside <raw> tags in this format:
+Please revise thoughtfully and provide your updated output in the format below, inside <raw> tags:
 
 <raw>
 {{
-  "question": "<revised question>",
-  "solution": "<step-by-step solution>",
-  "answer": "<short correct answer>"
+  "question": "<revised MCQ>",
+  "solution": "<revised step-by-step explanation>",
+  "answer": "<revised correct answer>"
 }}
 </raw>
 
@@ -115,6 +136,7 @@ Original Concept Explanation:
 {explanation}
 """
     return IO_Prompt.strip()
+
 
 def create_stage3_prompt(explanation, question_answer, evaluator_context=None):
     base_prompt = f"""
@@ -149,22 +171,4 @@ Q&A Pair:
     return base_prompt.strip()
 
 
-def stage4_formatting_prompt(raw_output: str) -> str:
-    return (
-        "You are a formatter."
-        "Your task is to extract a valid JSON from the given MCQ content. Follow this structure exactly:"
-        "{\n"
-        "  \"question\": \"...\",\n"
-        "  \"solution\": \"...\",\n"
-        "  \"options\": [\n"
-        "    \"Distractor 1\",\n"
-        "    \"Distractor 2\",\n"
-        "    \"Correct Answer\"\n"
-        "  ],\n"
-        "  \"explanation\": \"...\"\n"
-        "}\n"
-        "Make sure the correct answer is the LAST element in the options list."
-        "Only return valid JSON and nothing else. Do not include commentary or formatting.\n\n"
-        f"Input:\n{raw_output}"
-    )
 
