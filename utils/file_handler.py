@@ -1,4 +1,3 @@
-# utils/file_handler.py
 
 import os
 import random

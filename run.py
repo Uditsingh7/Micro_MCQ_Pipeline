@@ -1,4 +1,3 @@
-# run.py
 
 from app.pipeline import generate_mcq
 
@@ -11,8 +10,9 @@ if __name__ == '__main__':
             "years_of_experience": 0,
             "learning_goal": "Master the basics for NEET exam",
             "exam_style": "NEET",
-            "preferred_question_type": "Conceptual",
-            "difficulty_level": "Intermediate"
+            "preferred_question_type": "mcq", ## mcq, numerical, subjective
+            "difficulty_level": "Intermediate",
+            
         }
     }
 

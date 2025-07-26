@@ -1,4 +1,3 @@
-# runpod_agent.py
 
 import requests
 import os

@@ -1,4 +1,3 @@
-# prompts.py
 
 BASE_PROMPT_EVALUATOR = (
     "I am a highly skilled evaluator assistant specializing in assessing the quality and accuracy of Multiple Choice Questions (MCQs). "
@@ -79,7 +78,7 @@ def create_stage2_prompt(
     if not evaluator_context:
         IO_Prompt = f"""
 You are a helpful AI tutor specialized in preparing {academic_level} students for competitive exams like {exam_style}. 
-Your task is to generate a high-quality {template}-style MCQ that helps students deeply understand the topic.
+Your task is to generate a high-quality {template}-style {preferred_question_type} question based on the provided explanation.
 
 Think carefully through the explanation and generate a question that targets conceptual clarity. 
 Avoid surface-level trivia. Do not embed the answer inside the question.
@@ -93,22 +92,23 @@ Student Profile:
 - Difficulty Level: {selected_difficulty}
 - Learning Experience: {years_of_experience} years
 
-Think step-by-step to arrive at a good conceptual MCQ. Then respond ONLY with your final output in this format, inside <raw> tags:
+Then respond ONLY with your final output in this format, inside <raw> tags:
 
 <raw>
 {{
-  "question": "<a clear, student-friendly conceptual MCQ>",
+  "question": "<a clear, student-friendly {preferred_question_type} question>",
   "solution": "<step-by-step explanation that helps the student understand the reasoning>",
-  "answer": "<correct answer text>"
+  "answer": <the correct answer, either as a string or a number depending on question type>
 }}
 </raw>
+
 
 Concept Explanation:
 {explanation}
 """
     else:
         IO_Prompt = f"""
-You are revising a previously generated {template}-style MCQ based on evaluator feedback. Your focus is to improve the clarity, correctness, and conceptual depth of the question.
+You are revising a previously generated {template}-style {preferred_question_type} question based on evaluator feedback. Your focus is to improve the clarity, correctness, and conceptual depth of the question.
 
 Student Profile:
 - Role: {role}
@@ -126,9 +126,9 @@ Please revise thoughtfully and provide your updated output in the format below, 
 
 <raw>
 {{
-  "question": "<revised MCQ>",
-  "solution": "<revised step-by-step explanation>",
-  "answer": "<revised correct answer>"
+  "question": "<a clear, student-friendly {preferred_question_type} question>",
+  "solution": "<step-by-step explanation that helps the student understand the reasoning>",
+  "answer": <the correct answer, either as a string or a number depending on question type>
 }}
 </raw>
 
@@ -155,7 +155,7 @@ You may reason step-by-step. But conclude your response with the following JSON 
   "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
   "answer": "B",  # Correct letter only
   "explanation": "<why the correct answer is correct>"
-}}
+}} 
 </raw>
 
 Concept Explanation:

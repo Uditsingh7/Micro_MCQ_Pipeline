@@ -1,5 +1,3 @@
-# pipeline.py
-
 import ast
 import json
 import re
@@ -15,11 +13,11 @@ from app.continuity_agent import decide_revision_action
 
 
 def generate_mcq(context, user_profile):
+    preferred_question_type = user_profile.get("preferred_question_type")  # e.g., "Conceptual"
     role = user_profile.get("role")
     academic_level = user_profile.get("academic_level")  # e.g., "Class 11"
     learning_goal = user_profile.get("learning_goal")    # e.g., "Master NEET basics"
     exam_style = user_profile.get("exam_style")          # e.g., "NEET", "JEE"
-    preferred_question_type = user_profile.get("preferred_question_type")  # e.g., "Conceptual"
     difficulty = user_profile.get("difficulty_level")
     years_of_experience = user_profile.get("years_of_experience", 0)
     model = "runpod-llm"
@@ -61,15 +59,19 @@ def generate_mcq(context, user_profile):
         if not question_answer:
             return {"error": "Failed to generate question and answer."}
         logger.info("Question and Answer: %s", question_answer)
+        generator_response = question_answer
 
         # Stage 3: Full MCQ (options + explanation)
-        logger.info("🟣 Stage 3: Generating full MCQ...")
-        stage3_prompt = create_stage3_prompt(explanation, question_answer)
-        logger.info("Stage 3 Prompt: %s", stage3_prompt)
-        generator_response = query_llm(stage3_prompt, model, temperature=0.7)
-        generator_response = generator_response[0]['choices'][0]['tokens'][0]
-        generator_response = re.sub(r"<think>.*?</think>", "", generator_response, flags=re.DOTALL)
-        generator_response = re.sub(r"</?raw>", "", generator_response, flags=re.DOTALL)
+        ## only stage 3 prompt is used to generate the full MCQ
+        if(preferred_question_type == "mcq"):
+            logger.info("🟣 Stage 3: Generating full MCQ...")
+            stage3_prompt = create_stage3_prompt(explanation, question_answer)
+            logger.info("Stage 3 Prompt: %s", stage3_prompt)
+            generator_response = query_llm(stage3_prompt, model, temperature=0.7)
+            generator_response = generator_response[0]['choices'][0]['tokens'][0]
+            generator_response = re.sub(r"<think>.*?</think>", "", generator_response, flags=re.DOTALL)
+            generator_response = re.sub(r"</?raw>", "", generator_response, flags=re.DOTALL)
+        
         if not generator_response:
             return {"error": "Failed to generate MCQ options."}
         # logger.info("Initial MCQ: %s", generator_response)
@@ -79,7 +81,7 @@ def generate_mcq(context, user_profile):
         loop_threshold = 3
         while loop_count < loop_threshold:
             logger.info("🔍 Evaluation Round %d", loop_count + 1)
-            evaluator_feedback, token = evaluator_agent(generator_response)
+            evaluator_feedback, token = evaluator_agent(generator_response, preferred_question_type)
             
             decision = decide_revision_action(
             evaluator_feedback=json.dumps(evaluator_feedback, indent=2),
@@ -106,18 +108,20 @@ def generate_mcq(context, user_profile):
                     evaluator_context=evaluator_feedback
             )
                 question_answer = query_llm(stage2_prompt, model, temperature=0.3)
+                if not question_answer:
+                    return {"error": "Failed to regenerate question and answer."}
                 question_answer = question_answer[0]['choices'][0]['tokens'][0]
                 question_answer = re.sub(r"<think>.*?</think>", "", question_answer, flags=re.DOTALL)
                 question_answer = re.sub(r"</?raw>", "", question_answer, flags=re.DOTALL)
-                if not question_answer:
-                    return {"error": "Failed to regenerate question and answer."}
-
-                stage3_prompt = create_stage3_prompt(explanation, question_answer)
-                generator_response = query_llm(stage3_prompt, model, temperature=0.3)
-                generator_response = re.sub(r"<think>.*?</think>", "", generator_response, flags=re.DOTALL)
-                generator_response = re.sub(r"</?raw>", "", generator_response, flags=re.DOTALL)
-                if not generator_response:
-                    return {"error": "Failed to regenerate MCQ options."}
+                generator_response = question_answer
+                
+                if preferred_question_type == "mcq":
+                    stage3_prompt = create_stage3_prompt(explanation, question_answer)
+                    generator_response = query_llm(stage3_prompt, model, temperature=0.3)
+                    generator_response = re.sub(r"<think>.*?</think>", "", generator_response, flags=re.DOTALL)
+                    generator_response = re.sub(r"</?raw>", "", generator_response, flags=re.DOTALL)
+                    if not generator_response:
+                        logger.info({"error": "Failed to regenerate MCQ options."})
 
             elif decision == "options":
                 logger.info("🔁 Regenerating options due to: %s", decision) 
