@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: MCQ Pipeline Lambda (RunPod-backed agentic workflow)
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 60
+    MemorySize: 1024
+    Tracing: PassThrough
+    Environment:
+      Variables:
+        RUNPOD_API_KEY: ""        # Set during deploy
+        RUNPOD_ENDPOINT: ""       # Set during deploy
+
+Resources:
+  McqPipelineFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: lambda_handler.lambda_handler
+      Description: Generates MCQs via multi-stage prompts and evaluator loop
+      Architectures:
+        - x86_64
+      Policies: []  # No AWS permissions needed unless you add Secrets Manager, etc.
+      # Events:
+      #   # Optional: uncomment if you want an HTTP endpoint now
+      #   # ApiInvoke:
+      #   #   Type: HttpApi
+      #   #   Properties:
+      #   #     Path: /generate
+      #   #     Method: POST
+
+Outputs:
+  FunctionName:
+    Value: McqPipelineFunction
+    Description: Deployed Lambda function name
+  FunctionArn:
+    Value:
+      Fn::GetAtt: [McqPipelineFunction, Arn]
+    Description: Deployed Lambda function ARN

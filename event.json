@@ -1,0 +1,12 @@
+{
+  "context": "Explain the process of Photosynthesis and Light Reactions",
+  "user_profile": {
+    "role": "Student",
+    "academic_level": "Class 11",
+    "years_of_experience": 0,
+    "learning_goal": "Master the basics for NEET exam",
+    "exam_style": "NEET",
+    "preferred_question_type": "mcq",
+    "difficulty_level": "Intermediate"
+  }
+}
